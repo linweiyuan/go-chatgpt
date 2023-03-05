@@ -1,14 +1,9 @@
 package common
 
-const (
-	KEY_NODE    = "node"
-	KEY_MESSAGE = "message"
-)
-
 var (
 	QuestionAnswerMap = make(map[string]string)
 
-	NodeMessageChannel = make(chan map[string]interface{})
+	MessageChannel     = make(chan Message)
 	ExitForLoopChannel = make(chan bool)
 
 	ResponseTextChannel     = make(chan string)

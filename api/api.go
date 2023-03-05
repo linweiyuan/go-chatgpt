@@ -9,7 +9,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	"github.com/linweiyuan/go-chatgpt/common"
-	"github.com/rivo/tview"
 )
 
 const API_SERVER_URL = "https://api.linweiyuan.com/chatgpt"
@@ -41,7 +40,7 @@ func (api *API) GetConversations() *common.Conversations {
 	return &conversations
 }
 
-func (api *API) GetConversation(conversationID string, node *tview.TreeNode) {
+func (api *API) GetConversation(conversationID string) {
 	resp, err := client.R().Get("/conversation/" + conversationID)
 	if err != nil {
 		return
@@ -52,27 +51,24 @@ func (api *API) GetConversation(conversationID string, node *tview.TreeNode) {
 
 	currentNode := conversation.CurrentNode
 	common.ParentMessageID = currentNode
-	handleConversationDetail(currentNode, conversation.Mapping, node)
+	handleConversationDetail(currentNode, conversation.Mapping)
 
 	common.ExitForLoopChannel <- true
 }
 
-func handleConversationDetail(currentNode string, mapping map[string]common.ConversationDetail, node *tview.TreeNode) {
+func handleConversationDetail(currentNode string, mapping map[string]common.ConversationDetail) {
 	conversationDetail := mapping[currentNode]
 	parentID := conversationDetail.Parent
 	if parentID != "" {
 		common.QuestionAnswerMap[parentID] = strings.TrimSpace(conversationDetail.Message.Content.Parts[0])
-		handleConversationDetail(parentID, mapping, node)
+		handleConversationDetail(parentID, mapping)
 	}
 	message := conversationDetail.Message
 	parts := message.Content.Parts
 
 	if len(parts) != 0 && parts[0] != "" {
 		if message.Author.Role == "user" {
-			common.NodeMessageChannel <- map[string]interface{}{
-				common.KEY_NODE:    node,
-				common.KEY_MESSAGE: message,
-			}
+			common.MessageChannel <- message
 		}
 	}
 }

@@ -56,15 +56,12 @@ func (ui *UI) Setup() {
 				return
 			}
 
-			go ui.getConversation(conversationItem.ID, node)
+			go ui.getConversation(conversationItem.ID)
 
-			go func() {
+			go func(currentNode *tview.TreeNode) {
 				for {
 					select {
-					case nodeMessageMap := <-common.NodeMessageChannel:
-						currentNode := nodeMessageMap[common.KEY_NODE].(*tview.TreeNode)
-						message := nodeMessageMap[common.KEY_MESSAGE].(common.Message)
-
+					case message := <-common.MessageChannel:
 						questionTreeNode := tview.NewTreeNode(message.Content.Parts[0]).SetReference(message)
 						questionTreeNode.SetSelectedFunc(func() {
 							message := questionTreeNode.GetReference().(common.Message)
@@ -77,7 +74,7 @@ func (ui *UI) Setup() {
 						return
 					}
 				}
-			}()
+			}(node)
 		}
 		ui.messageArea.SetText("", false)
 	})
@@ -146,11 +143,11 @@ func (ui *UI) renderConversationTree(conversations *common.Conversations) {
 	})
 }
 
-func (ui *UI) getConversation(conversationItemID string, node *tview.TreeNode) {
+func (ui *UI) getConversation(conversationItemID string) {
 	ui.StartLoading(ui.ConversationTreeView.Box)
 	defer ui.StopLoading(ui.ConversationTreeView.Box)
 
-	ui.api.GetConversation(conversationItemID, node)
+	ui.api.GetConversation(conversationItemID)
 }
 
 func (ui *UI) startConversation(text string) {
