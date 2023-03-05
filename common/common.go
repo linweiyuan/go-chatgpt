@@ -13,6 +13,10 @@ var (
 
 	ResponseTextChannel     = make(chan string)
 	ConversationDoneChannel = make(chan bool)
+
+	MessageID       string
+	ParentMessageID string
+	ConversationID  string
 )
 
 type Conversations struct {
@@ -58,8 +62,13 @@ type Content struct {
 }
 
 type MakeConversationRequest struct {
-	MessageId       string  `json:"message_id"`
-	ParentMessageId string  `json:"parent_message_id"`
-	ConversationId  *string `json:"conversation_id"`
-	Content         string  `json:"content"`
+	MessageID       string `json:"message_id"`
+	ParentMessageID string `json:"parent_message_id"`
+	ConversationID  string `json:"conversation_id"`
+	Content         string `json:"content"`
+}
+
+type MakeConversationResponse struct {
+	ConversationID string  `json:"conversation_id"`
+	Message        Message `json:"message"`
 }

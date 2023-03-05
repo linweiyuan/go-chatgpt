@@ -24,7 +24,7 @@ func New(api *api.API) *UI {
 	return &UI{
 		app: tview.NewApplication(),
 
-		conversationTreeNodeRoot: tview.NewTreeNode("Conversations"),
+		conversationTreeNodeRoot: tview.NewTreeNode("+ New chat"),
 		ConversationTreeView:     tview.NewTreeView(),
 		contentField:             tview.NewInputField(),
 		messageArea:              tview.NewTextArea(),
@@ -36,9 +36,17 @@ func New(api *api.API) *UI {
 func (ui *UI) Setup() {
 	ui.ConversationTreeView.SetRoot(ui.conversationTreeNodeRoot).SetCurrentNode(ui.conversationTreeNodeRoot)
 	ui.ConversationTreeView.SetBorder(true)
+	ui.ConversationTreeView.SetChangedFunc(func(node *tview.TreeNode) {
+		conversationItem, ok := node.GetReference().(common.ConversationItem)
+		if ok {
+			common.ConversationID = conversationItem.ID
+		}
+	})
 	ui.ConversationTreeView.SetSelectedFunc(func(node *tview.TreeNode) {
 		conversationItem := node.GetReference()
 		if conversationItem == nil {
+			common.ConversationID = ""
+			ui.messageArea.SetText("", false)
 			return
 		}
 
@@ -103,7 +111,7 @@ func (ui *UI) Setup() {
 	}()
 
 	rightFlex := tview.NewFlex().SetDirection(tview.FlexRow)
-	rightFlex.AddItem(ui.contentField, 0, 1, false)
+	rightFlex.AddItem(ui.contentField, 3, 1, false)
 	rightFlex.AddItem(ui.messageArea, 0, 9, false)
 
 	mainFlex := tview.NewFlex()
@@ -115,6 +123,14 @@ func (ui *UI) Setup() {
 	}
 }
 
+func (ui *UI) GetConversations() {
+	ui.StartLoading(ui.ConversationTreeView.Box)
+	defer ui.StopLoading(ui.ConversationTreeView.Box)
+
+	conversations := ui.api.GetConversations()
+	ui.renderConversationTree(conversations)
+}
+
 func (ui *UI) renderConversationTree(conversations *common.Conversations) {
 	ui.app.QueueUpdateDraw(func() {
 		ui.conversationTreeNodeRoot.ClearChildren()
@@ -124,14 +140,7 @@ func (ui *UI) renderConversationTree(conversations *common.Conversations) {
 			ui.conversationTreeNodeRoot.AddChild(conversationTreeNode)
 		}
 	})
-}
 
-func (ui *UI) GetConversations() {
-	ui.StartLoading(ui.ConversationTreeView.Box)
-	defer ui.StopLoading(ui.ConversationTreeView.Box)
-
-	conversations := ui.api.GetConversations()
-	ui.renderConversationTree(conversations)
 }
 
 func (ui *UI) getConversation(conversationItemID string, node *tview.TreeNode) {

@@ -50,7 +50,9 @@ func (api *API) GetConversation(conversationID string, node *tview.TreeNode) {
 	var conversation common.Conversation
 	json.Unmarshal(resp.Body(), &conversation)
 
-	handleConversationDetail(conversation.CurrentNode, conversation.Mapping, node)
+	currentNode := conversation.CurrentNode
+	common.ParentMessageID = currentNode
+	handleConversationDetail(currentNode, conversation.Mapping, node)
 
 	common.ExitForLoopChannel <- true
 }
@@ -76,19 +78,27 @@ func handleConversationDetail(currentNode string, mapping map[string]common.Conv
 }
 
 func (api *API) StartConversation(content string) {
+	common.MessageID = uuid.NewString()
+	parentMessageID := common.ParentMessageID
+	if parentMessageID == "" {
+		parentMessageID = uuid.NewString()
+	}
 	resp, err := client.R().
 		SetDoNotParseResponse(true).
 		SetHeader("Content-Type", "application/json").
 		SetBody(common.MakeConversationRequest{
-			MessageId:       uuid.NewString(),
-			ParentMessageId: uuid.NewString(),
-			ConversationId:  nil,
+			MessageID:       common.MessageID,
+			ParentMessageID: parentMessageID,
+			ConversationID:  common.ConversationID,
 			Content:         content,
 		}).
 		Post("/conversation")
 	if err != nil {
 		return
 	}
+
+	// get it again from response
+	common.ParentMessageID = ""
 
 	defer resp.RawBody().Close()
 
@@ -100,9 +110,9 @@ func (api *API) StartConversation(content string) {
 			break
 		}
 
-		conversationDetail := parseEvent(line)
-		if conversationDetail != nil {
-			parts := conversationDetail.Message.Content.Parts
+		makeConversationResponse := parseEvent(line)
+		if makeConversationResponse != nil {
+			parts := makeConversationResponse.Message.Content.Parts
 			if len(parts) != 0 {
 				common.ResponseTextChannel <- parts[0]
 			}
@@ -110,16 +120,24 @@ func (api *API) StartConversation(content string) {
 	}
 }
 
-func parseEvent(line string) *common.ConversationDetail {
+func parseEvent(line string) *common.MakeConversationResponse {
 	if strings.Contains(line, "DONE") {
 		return nil
 	}
 
 	if strings.HasPrefix(line, "data: ") {
-		var conversationDetail common.ConversationDetail
-		a := strings.TrimRight(strings.TrimPrefix(line, "data: "), "\n")
-		json.Unmarshal([]byte(a), &conversationDetail)
-		return &conversationDetail
+		var makeConversationResponse common.MakeConversationResponse
+		str := strings.TrimRight(strings.TrimPrefix(line, "data: "), "\n")
+		json.Unmarshal([]byte(str), &makeConversationResponse)
+
+		if common.ParentMessageID == "" {
+			common.ParentMessageID = makeConversationResponse.Message.ID
+		}
+		if common.ConversationID == "" {
+			common.ConversationID = makeConversationResponse.ConversationID
+		}
+
+		return &makeConversationResponse
 	}
 
 	return nil
