@@ -34,6 +34,21 @@ func New(api *api.API) *UI {
 }
 
 func (ui *UI) Setup() {
+	ui.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTab {
+			switch ui.app.GetFocus() {
+			case ui.ConversationTreeView:
+				ui.app.SetFocus(ui.contentField)
+			case ui.contentField:
+				ui.app.SetFocus(ui.messageArea)
+			case ui.messageArea:
+				ui.app.SetFocus(ui.ConversationTreeView)
+			}
+			return nil
+		}
+		return event
+	})
+
 	ui.ConversationTreeView.SetRoot(ui.conversationTreeNodeRoot).SetCurrentNode(ui.conversationTreeNodeRoot)
 	ui.ConversationTreeView.SetBorder(true)
 	ui.ConversationTreeView.SetSelectedFunc(func(node *tview.TreeNode) {
