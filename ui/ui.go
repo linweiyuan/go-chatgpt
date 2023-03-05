@@ -40,8 +40,6 @@ func (ui *UI) Setup() {
 			case ui.ConversationTreeView:
 				ui.app.SetFocus(ui.contentField)
 			case ui.contentField:
-				ui.app.SetFocus(ui.messageArea)
-			case ui.messageArea:
 				ui.app.SetFocus(ui.ConversationTreeView)
 			}
 			return nil
