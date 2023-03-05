@@ -36,18 +36,17 @@ func New(api *api.API) *UI {
 func (ui *UI) Setup() {
 	ui.ConversationTreeView.SetRoot(ui.conversationTreeNodeRoot).SetCurrentNode(ui.conversationTreeNodeRoot)
 	ui.ConversationTreeView.SetBorder(true)
-	ui.ConversationTreeView.SetChangedFunc(func(node *tview.TreeNode) {
-		conversationItem, ok := node.GetReference().(common.ConversationItem)
-		if ok {
-			common.ConversationID = conversationItem.ID
-		}
-	})
 	ui.ConversationTreeView.SetSelectedFunc(func(node *tview.TreeNode) {
-		conversationItem := node.GetReference()
-		if conversationItem == nil {
+		reference := node.GetReference()
+		if reference == nil {
 			common.ConversationID = ""
 			ui.messageArea.SetText("", false)
 			return
+		}
+
+		conversationItem, ok := node.GetReference().(common.ConversationItem)
+		if ok {
+			common.ConversationID = conversationItem.ID
 		}
 
 		if len(node.GetChildren()) == 0 {
