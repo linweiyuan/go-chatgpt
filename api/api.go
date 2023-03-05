@@ -12,7 +12,7 @@ import (
 	"github.com/linweiyuan/go-chatgpt/common"
 )
 
-const ServerUrl = "https://api.linweiyuan.com/chatgpt"
+var ServerUrl = os.Getenv("SERVER_URL")
 
 var (
 	client *resty.Client
