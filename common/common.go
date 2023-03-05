@@ -1,5 +1,7 @@
 package common
 
+import "github.com/rivo/tview"
+
 var (
 	QuestionAnswerMap = make(map[string]string)
 
@@ -14,6 +16,8 @@ var (
 	ConversationID  string
 
 	ReloadConversationsChannel = make(chan bool)
+
+	CurrentNode *tview.TreeNode
 )
 
 type Conversations struct {

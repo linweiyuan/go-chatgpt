@@ -77,6 +77,8 @@ func (ui *UI) Setup() {
 			}(node)
 		}
 		ui.messageArea.SetText("", false)
+
+		common.CurrentNode = node
 	})
 
 	ui.contentField.SetBorder(true)
@@ -136,9 +138,25 @@ func (ui *UI) renderConversationTree(conversations *common.Conversations) {
 	ui.app.QueueUpdateDraw(func() {
 		ui.conversationTreeNodeRoot.ClearChildren()
 
+		var conversationID string
+		if common.CurrentNode != nil {
+			conversationItem, ok := common.CurrentNode.GetReference().(common.ConversationItem)
+			if ok {
+				conversationID = conversationItem.ID
+			}
+		}
+
 		for _, conversation := range conversations.Items {
 			conversationTreeNode := tview.NewTreeNode(conversation.Title).SetReference(conversation)
+			if conversation.ID == conversationID {
+				common.CurrentNode = conversationTreeNode
+			}
 			ui.conversationTreeNodeRoot.AddChild(conversationTreeNode)
+		}
+
+		if common.CurrentNode != nil {
+			common.CurrentNode.SetExpanded(true)
+			ui.ConversationTreeView.SetCurrentNode(common.CurrentNode)
 		}
 	})
 }

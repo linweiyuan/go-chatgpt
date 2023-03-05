@@ -78,7 +78,7 @@ var tempConversationID string
 func (api *API) StartConversation(content string) {
 	common.MessageID = uuid.NewString()
 	parentMessageID := common.ParentMessageID
-	if parentMessageID == "" {
+	if parentMessageID == "" || common.ConversationID == "" {
 		parentMessageID = uuid.NewString()
 	}
 	resp, err := client.R().
@@ -156,9 +156,6 @@ func (api *API) GenerateConversationTitle(conversationID string) {
 	if err != nil {
 		return
 	}
-
-	// update for new conversation
-	common.ConversationID = conversationID
 
 	common.ReloadConversationsChannel <- true
 }
