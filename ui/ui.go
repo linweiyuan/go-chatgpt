@@ -1,45 +1,104 @@
 package ui
 
 import (
+	"github.com/linweiyuan/go-chatgpt/api"
+	"github.com/linweiyuan/go-chatgpt/common"
 	"github.com/rivo/tview"
 )
 
 type UI struct {
-	App                      *tview.Application
-	ConversationTreeNodeRoot *tview.TreeNode
+	app *tview.Application
+
+	conversationTreeNodeRoot *tview.TreeNode
 	ConversationTreeView     *tview.TreeView
-	ContentField             *tview.InputField
-	MessageArea              *tview.TextArea
+	contentField             *tview.InputField
+	messageArea              *tview.TextArea
+
+	api *api.API
 }
 
-func New() *UI {
+func New(api *api.API) *UI {
 	return &UI{
-		App: tview.NewApplication(),
+		app: tview.NewApplication(),
 
-		ConversationTreeNodeRoot: tview.NewTreeNode("Conversations"),
+		conversationTreeNodeRoot: tview.NewTreeNode("Conversations"),
 		ConversationTreeView:     tview.NewTreeView(),
-		ContentField:             tview.NewInputField(),
-		MessageArea:              tview.NewTextArea(),
+		contentField:             tview.NewInputField(),
+		messageArea:              tview.NewTextArea(),
+
+		api: api,
 	}
 }
 
 func (ui *UI) Setup() {
-	ui.ConversationTreeView.SetRoot(ui.ConversationTreeNodeRoot).SetCurrentNode(ui.ConversationTreeNodeRoot)
+	ui.ConversationTreeView.SetRoot(ui.conversationTreeNodeRoot).SetCurrentNode(ui.conversationTreeNodeRoot)
 	ui.ConversationTreeView.SetBorder(true)
+	ui.ConversationTreeView.SetSelectedFunc(func(node *tview.TreeNode) {
+		conversationItem := node.GetReference()
+		if conversationItem == nil {
+			return
+		}
 
-	ui.ContentField.SetBorder(true)
+		if len(node.GetChildren()) == 0 {
+			conversationItem, ok := node.GetReference().(common.ConversationItem)
+			if !ok {
+				return
+			}
 
-	ui.MessageArea.SetBorder(true)
+			go func() {
+				ui.StartLoading(ui.ConversationTreeView.Box)
+				defer ui.StopLoading(ui.ConversationTreeView.Box)
+
+				ui.api.GetConversation(conversationItem.ID, node)
+			}()
+
+			go func() {
+				for {
+					select {
+					case nodeMessageMap := <-common.NodeMessageChannel:
+						currentNode := nodeMessageMap[common.KEY_NODE].(*tview.TreeNode)
+						message := nodeMessageMap[common.KEY_MESSAGE].(common.Message)
+
+						questionTreeNode := tview.NewTreeNode(message.Content.Parts[0]).SetReference(message)
+						questionTreeNode.SetSelectedFunc(func() {
+							message := questionTreeNode.GetReference().(common.Message)
+							ui.messageArea.SetText(common.QuestionAnswerMap[message.ID], true)
+						})
+						ui.app.QueueUpdateDraw(func() {
+							currentNode.AddChild(questionTreeNode)
+						})
+					case <-common.ExitForLoopChannel:
+						return
+					}
+				}
+			}()
+		} else {
+			node.SetExpanded(!node.IsExpanded())
+		}
+	})
+
+	ui.contentField.SetBorder(true)
+
+	ui.messageArea.SetBorder(true)
 
 	rightFlex := tview.NewFlex().SetDirection(tview.FlexRow)
-	rightFlex.AddItem(ui.ContentField, 0, 1, false)
-	rightFlex.AddItem(ui.MessageArea, 0, 9, false)
+	rightFlex.AddItem(ui.contentField, 0, 1, false)
+	rightFlex.AddItem(ui.messageArea, 0, 9, false)
 
 	mainFlex := tview.NewFlex()
 	mainFlex.AddItem(ui.ConversationTreeView, 0, 4, false)
 	mainFlex.AddItem(rightFlex, 0, 6, false)
 
-	if err := ui.App.SetRoot(mainFlex, true).SetFocus(ui.ContentField).EnableMouse(true).Run(); err != nil {
+	if err := ui.app.SetRoot(mainFlex, true).SetFocus(ui.contentField).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
+}
+
+func (ui *UI) RenderConversationTree(conversations *common.Conversations) {
+	ui.app.QueueUpdateDraw(func() {
+		for _, conversation := range conversations.Items {
+			conversationTreeNode := tview.NewTreeNode(conversation.Title).SetReference(conversation)
+			ui.conversationTreeNodeRoot.AddChild(conversationTreeNode)
+		}
+	})
 }
