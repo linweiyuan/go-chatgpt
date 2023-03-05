@@ -97,6 +97,10 @@ func (ui *UI) Setup() {
 	}()
 
 	ui.messageArea.SetBorder(true)
+	ui.messageArea.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		return nil
+	})
+
 	go func() {
 		for responseText := range common.ResponseTextChannel {
 			ui.app.QueueUpdateDraw(func() {
