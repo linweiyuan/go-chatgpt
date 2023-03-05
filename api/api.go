@@ -3,6 +3,7 @@ package api
 import (
 	"bufio"
 	"encoding/json"
+	"io"
 	"os"
 	"strings"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/linweiyuan/go-chatgpt/common"
 )
 
-const API_SERVER_URL = "https://api.linweiyuan.com/chatgpt"
+const ServerUrl = "https://api.linweiyuan.com/chatgpt"
 
 var (
 	client *resty.Client
@@ -25,7 +26,7 @@ func New() *API {
 }
 
 func init() {
-	client = resty.New().SetBaseURL(API_SERVER_URL)
+	client = resty.New().SetBaseURL(ServerUrl)
 	client.SetHeader("Authorization", os.Getenv("ACCESS_TOKEN"))
 }
 
@@ -36,7 +37,11 @@ func (api *API) GetConversations() *common.Conversations {
 	}
 
 	var conversations common.Conversations
-	json.Unmarshal(resp.Body(), &conversations)
+	err = json.Unmarshal(resp.Body(), &conversations)
+	if err != nil {
+		return nil
+	}
+
 	return &conversations
 }
 
@@ -47,7 +52,10 @@ func (api *API) GetConversation(conversationID string) {
 	}
 
 	var conversation common.Conversation
-	json.Unmarshal(resp.Body(), &conversation)
+	err = json.Unmarshal(resp.Body(), &conversation)
+	if err != nil {
+		return
+	}
 
 	currentNode := conversation.CurrentNode
 	common.ParentMessageID = currentNode
@@ -98,7 +106,12 @@ func (api *API) StartConversation(content string) {
 	// get it again from response
 	common.ParentMessageID = ""
 
-	defer resp.RawBody().Close()
+	defer func(body io.ReadCloser) {
+		err := body.Close()
+		if err != nil {
+			return
+		}
+	}(resp.RawBody())
 
 	reader := bufio.NewReader(resp.RawBody())
 	for {
@@ -132,7 +145,10 @@ func parseEvent(line string) *common.MakeConversationResponse {
 	if strings.HasPrefix(line, "data: ") {
 		var makeConversationResponse common.MakeConversationResponse
 		str := strings.TrimRight(strings.TrimPrefix(line, "data: "), "\n")
-		json.Unmarshal([]byte(str), &makeConversationResponse)
+		err := json.Unmarshal([]byte(str), &makeConversationResponse)
+		if err != nil {
+			return nil
+		}
 
 		if common.ParentMessageID == "" {
 			common.ParentMessageID = makeConversationResponse.Message.ID

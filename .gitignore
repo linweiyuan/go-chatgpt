@@ -1,1 +1,4 @@
+.idea
+__debug_bin
 go-chatgpt
+*.iml

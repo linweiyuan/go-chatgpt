@@ -130,7 +130,9 @@ func (ui *UI) GetConversations() {
 	defer ui.StopLoading(ui.ConversationTreeView.Box)
 
 	conversations := ui.api.GetConversations()
-	ui.renderConversationTree(conversations)
+	if conversations != nil {
+		ui.renderConversationTree(conversations)
+	}
 }
 
 func (ui *UI) renderConversationTree(conversations *common.Conversations) {

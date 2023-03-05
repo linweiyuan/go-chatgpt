@@ -6,8 +6,7 @@ import (
 )
 
 func main() {
-	api := api.New()
-	ui := ui.New(api)
-	go ui.GetConversations()
-	ui.Setup()
+	app := ui.New(api.New())
+	go app.GetConversations()
+	app.Setup()
 }
