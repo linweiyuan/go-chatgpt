@@ -1,11 +1,13 @@
 package api
 
 import (
+	"bufio"
 	"encoding/json"
 	"os"
 	"strings"
 
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	"github.com/linweiyuan/go-chatgpt/common"
 	"github.com/rivo/tview"
 )
@@ -71,4 +73,54 @@ func handleConversationDetail(currentNode string, mapping map[string]common.Conv
 			}
 		}
 	}
+}
+
+func (api *API) StartConversation(content string) {
+	resp, err := client.R().
+		SetDoNotParseResponse(true).
+		SetHeader("Content-Type", "application/json").
+		SetBody(common.MakeConversationRequest{
+			MessageId:       uuid.NewString(),
+			ParentMessageId: uuid.NewString(),
+			ConversationId:  nil,
+			Content:         content,
+		}).
+		Post("/conversation")
+	if err != nil {
+		return
+	}
+
+	defer resp.RawBody().Close()
+
+	reader := bufio.NewReader(resp.RawBody())
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			common.ConversationDoneChannel <- true
+			break
+		}
+
+		conversationDetail := parseEvent(line)
+		if conversationDetail != nil {
+			parts := conversationDetail.Message.Content.Parts
+			if len(parts) != 0 {
+				common.ResponseTextChannel <- parts[0]
+			}
+		}
+	}
+}
+
+func parseEvent(line string) *common.ConversationDetail {
+	if strings.Contains(line, "DONE") {
+		return nil
+	}
+
+	if strings.HasPrefix(line, "data: ") {
+		var conversationDetail common.ConversationDetail
+		a := strings.TrimRight(strings.TrimPrefix(line, "data: "), "\n")
+		json.Unmarshal([]byte(a), &conversationDetail)
+		return &conversationDetail
+	}
+
+	return nil
 }

@@ -9,8 +9,10 @@ var (
 	QuestionAnswerMap = make(map[string]string)
 
 	NodeMessageChannel = make(chan map[string]interface{})
-
 	ExitForLoopChannel = make(chan bool)
+
+	ResponseTextChannel     = make(chan string)
+	ConversationDoneChannel = make(chan bool)
 )
 
 type Conversations struct {
@@ -53,4 +55,11 @@ type Author struct {
 type Content struct {
 	ContentType string   `json:"content_type"`
 	Parts       []string `json:"parts"`
+}
+
+type MakeConversationRequest struct {
+	MessageId       string  `json:"message_id"`
+	ParentMessageId string  `json:"parent_message_id"`
+	ConversationId  *string `json:"conversation_id"`
+	Content         string  `json:"content"`
 }

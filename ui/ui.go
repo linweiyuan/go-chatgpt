@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"strings"
+
+	"github.com/gdamore/tcell/v2"
 	"github.com/linweiyuan/go-chatgpt/api"
 	"github.com/linweiyuan/go-chatgpt/common"
 	"github.com/rivo/tview"
@@ -45,12 +48,7 @@ func (ui *UI) Setup() {
 				return
 			}
 
-			go func() {
-				ui.StartLoading(ui.ConversationTreeView.Box)
-				defer ui.StopLoading(ui.ConversationTreeView.Box)
-
-				ui.api.GetConversation(conversationItem.ID, node)
-			}()
+			go ui.getConversation(conversationItem.ID, node)
 
 			go func() {
 				for {
@@ -78,8 +76,31 @@ func (ui *UI) Setup() {
 	})
 
 	ui.contentField.SetBorder(true)
+	ui.contentField.SetDoneFunc(func(key tcell.Key) {
+		text := strings.TrimSpace(ui.contentField.GetText())
+		if text == "" {
+			return
+		}
+
+		go ui.startConversation(text)
+	})
+	go func() {
+		for {
+			<-common.ConversationDoneChannel
+			ui.contentField.SetText("")
+
+			go ui.GetConversations()
+		}
+	}()
 
 	ui.messageArea.SetBorder(true)
+	go func() {
+		for responseText := range common.ResponseTextChannel {
+			ui.app.QueueUpdateDraw(func() {
+				ui.messageArea.SetText(responseText, true)
+			})
+		}
+	}()
 
 	rightFlex := tview.NewFlex().SetDirection(tview.FlexRow)
 	rightFlex.AddItem(ui.contentField, 0, 1, false)
@@ -94,11 +115,35 @@ func (ui *UI) Setup() {
 	}
 }
 
-func (ui *UI) RenderConversationTree(conversations *common.Conversations) {
+func (ui *UI) renderConversationTree(conversations *common.Conversations) {
 	ui.app.QueueUpdateDraw(func() {
+		ui.conversationTreeNodeRoot.ClearChildren()
+
 		for _, conversation := range conversations.Items {
 			conversationTreeNode := tview.NewTreeNode(conversation.Title).SetReference(conversation)
 			ui.conversationTreeNodeRoot.AddChild(conversationTreeNode)
 		}
 	})
+}
+
+func (ui *UI) GetConversations() {
+	ui.StartLoading(ui.ConversationTreeView.Box)
+	defer ui.StopLoading(ui.ConversationTreeView.Box)
+
+	conversations := ui.api.GetConversations()
+	ui.renderConversationTree(conversations)
+}
+
+func (ui *UI) getConversation(conversationItemID string, node *tview.TreeNode) {
+	ui.StartLoading(ui.ConversationTreeView.Box)
+	defer ui.StopLoading(ui.ConversationTreeView.Box)
+
+	ui.api.GetConversation(conversationItemID, node)
+}
+
+func (ui *UI) startConversation(text string) {
+	ui.StartLoading(ui.messageArea.Box)
+	defer ui.StopLoading(ui.messageArea.Box)
+
+	ui.api.StartConversation(text)
 }

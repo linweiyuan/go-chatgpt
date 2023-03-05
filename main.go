@@ -8,14 +8,6 @@ import (
 func main() {
 	api := api.New()
 	ui := ui.New(api)
-
-	go func() {
-		ui.StartLoading(ui.ConversationTreeView.Box)
-		defer ui.StopLoading(ui.ConversationTreeView.Box)
-
-		conversations := api.GetConversations()
-		ui.RenderConversationTree(conversations)
-	}()
-
+	go ui.GetConversations()
 	ui.Setup()
 }
