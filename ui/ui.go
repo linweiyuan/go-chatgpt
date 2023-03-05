@@ -55,6 +55,7 @@ func (ui *UI) Setup() {
 		reference := node.GetReference()
 		if reference == nil {
 			common.ConversationID = ""
+			common.CurrentNode = nil
 			ui.messageArea.SetText("", false)
 			return
 		}
@@ -175,7 +176,6 @@ func (ui *UI) renderConversationTree(conversations *common.Conversations) {
 		}
 
 		if common.CurrentNode != nil {
-			common.CurrentNode.SetExpanded(true)
 			ui.ConversationTreeView.SetCurrentNode(common.CurrentNode)
 		}
 	})
