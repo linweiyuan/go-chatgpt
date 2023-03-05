@@ -123,6 +123,8 @@ func (api *API) StartConversation(content string) {
 
 	if common.ConversationID == "" {
 		go api.GenerateConversationTitle(tempConversationID)
+	} else {
+		common.ReloadConversationsChannel <- true
 	}
 }
 
@@ -162,5 +164,5 @@ func (api *API) GenerateConversationTitle(conversationID string) {
 	// update for new conversation
 	common.ConversationID = conversationID
 
-	common.GenerateConversationTitleDoneChannel <- true
+	common.ReloadConversationsChannel <- true
 }

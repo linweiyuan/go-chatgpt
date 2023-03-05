@@ -78,9 +78,8 @@ func (ui *UI) Setup() {
 					}
 				}
 			}()
-		} else {
-			node.SetExpanded(!node.IsExpanded())
 		}
+		ui.messageArea.SetText("", false)
 	})
 
 	ui.contentField.SetBorder(true)
@@ -113,12 +112,14 @@ func (ui *UI) Setup() {
 	rightFlex.AddItem(ui.messageArea, 0, 9, false)
 
 	mainFlex := tview.NewFlex()
-	mainFlex.AddItem(ui.ConversationTreeView, 0, 4, false)
-	mainFlex.AddItem(rightFlex, 0, 6, false)
+	mainFlex.AddItem(ui.ConversationTreeView, 0, 3, false)
+	mainFlex.AddItem(rightFlex, 0, 7, false)
 
 	go func() {
-		<-common.GenerateConversationTitleDoneChannel
-		ui.GetConversations()
+		for {
+			<-common.ReloadConversationsChannel
+			ui.GetConversations()
+		}
 	}()
 
 	if err := ui.app.SetRoot(mainFlex, true).SetFocus(ui.contentField).EnableMouse(true).Run(); err != nil {

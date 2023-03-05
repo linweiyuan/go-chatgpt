@@ -18,7 +18,7 @@ var (
 	ParentMessageID string
 	ConversationID  string
 
-	GenerateConversationTitleDoneChannel = make(chan bool)
+	ReloadConversationsChannel = make(chan bool)
 )
 
 type Conversations struct {
