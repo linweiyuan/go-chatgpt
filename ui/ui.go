@@ -96,8 +96,6 @@ func (ui *UI) Setup() {
 		for {
 			<-common.ConversationDoneChannel
 			ui.contentField.SetText("")
-
-			go ui.GetConversations()
 		}
 	}()
 
@@ -117,6 +115,11 @@ func (ui *UI) Setup() {
 	mainFlex := tview.NewFlex()
 	mainFlex.AddItem(ui.ConversationTreeView, 0, 4, false)
 	mainFlex.AddItem(rightFlex, 0, 6, false)
+
+	go func() {
+		<-common.GenerateConversationTitleDoneChannel
+		ui.GetConversations()
+	}()
 
 	if err := ui.app.SetRoot(mainFlex, true).SetFocus(ui.contentField).EnableMouse(true).Run(); err != nil {
 		panic(err)
@@ -140,7 +143,6 @@ func (ui *UI) renderConversationTree(conversations *common.Conversations) {
 			ui.conversationTreeNodeRoot.AddChild(conversationTreeNode)
 		}
 	})
-
 }
 
 func (ui *UI) getConversation(conversationItemID string, node *tview.TreeNode) {

@@ -77,6 +77,8 @@ func handleConversationDetail(currentNode string, mapping map[string]common.Conv
 	}
 }
 
+var tempConversationID string
+
 func (api *API) StartConversation(content string) {
 	common.MessageID = uuid.NewString()
 	parentMessageID := common.ParentMessageID
@@ -118,6 +120,10 @@ func (api *API) StartConversation(content string) {
 			}
 		}
 	}
+
+	if common.ConversationID == "" {
+		go api.GenerateConversationTitle(tempConversationID)
+	}
 }
 
 func parseEvent(line string) *common.MakeConversationResponse {
@@ -134,11 +140,27 @@ func parseEvent(line string) *common.MakeConversationResponse {
 			common.ParentMessageID = makeConversationResponse.Message.ID
 		}
 		if common.ConversationID == "" {
-			common.ConversationID = makeConversationResponse.ConversationID
+			tempConversationID = makeConversationResponse.ConversationID
 		}
 
 		return &makeConversationResponse
 	}
 
 	return nil
+}
+
+func (api *API) GenerateConversationTitle(conversationID string) {
+	_, err := client.R().
+		SetBody(map[string]string{
+			"message_id": common.MessageID,
+		}).
+		Post("/conversation/gen_title/" + conversationID)
+	if err != nil {
+		return
+	}
+
+	// update for new conversation
+	common.ConversationID = conversationID
+
+	common.GenerateConversationTitleDoneChannel <- true
 }
