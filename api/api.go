@@ -12,7 +12,7 @@ import (
 	"github.com/linweiyuan/go-chatgpt/common"
 )
 
-var ServerUrl = os.Getenv("SERVER_URL")
+var defaultServerUrl = "https://api.linweiyuan.com/chatgpt"
 
 var (
 	client *resty.Client
@@ -26,7 +26,11 @@ func New() *API {
 }
 
 func init() {
-	client = resty.New().SetBaseURL(ServerUrl)
+	serverUrl := os.Getenv("SERVER_URL")
+	if serverUrl == "" {
+		serverUrl = defaultServerUrl
+	}
+	client = resty.New().SetBaseURL(serverUrl)
 	client.SetHeader("Authorization", os.Getenv("ACCESS_TOKEN"))
 }
 
