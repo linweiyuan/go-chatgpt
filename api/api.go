@@ -3,6 +3,7 @@ package api
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -17,6 +18,8 @@ var defaultServerUrl = "https://api.linweiyuan.com/chatgpt"
 var (
 	client *resty.Client
 )
+
+const model = "text-davinci-002-render-sha"
 
 type API struct {
 }
@@ -34,32 +37,22 @@ func init() {
 	client.SetHeader("Authorization", os.Getenv("ACCESS_TOKEN"))
 }
 
+//goland:noinspection GoUnhandledErrorResult
 func (api *API) GetConversations() *common.Conversations {
-	resp, err := client.R().Get("/conversations")
-	if err != nil {
-		return nil
-	}
+	resp, _ := client.R().Get("/conversations")
 
 	var conversations common.Conversations
-	err = json.Unmarshal(resp.Body(), &conversations)
-	if err != nil {
-		return nil
-	}
+	json.Unmarshal(resp.Body(), &conversations)
 
 	return &conversations
 }
 
+//goland:noinspection GoUnhandledErrorResult
 func (api *API) GetConversation(conversationID string) {
-	resp, err := client.R().Get("/conversation/" + conversationID)
-	if err != nil {
-		return
-	}
+	resp, _ := client.R().Get("/conversation/" + conversationID)
 
 	var conversation common.Conversation
-	err = json.Unmarshal(resp.Body(), &conversation)
-	if err != nil {
-		return
-	}
+	json.Unmarshal(resp.Body(), &conversation)
 
 	currentNode := conversation.CurrentNode
 	common.ParentMessageID = currentNode
@@ -87,90 +80,82 @@ func handleConversationDetail(currentNode string, mapping map[string]common.Conv
 
 var tempConversationID string
 
+//goland:noinspection GoUnhandledErrorResult
 func (api *API) StartConversation(content string) {
-	common.MessageID = uuid.NewString()
 	parentMessageID := common.ParentMessageID
 	if parentMessageID == "" || common.ConversationID == "" {
 		parentMessageID = uuid.NewString()
 	}
-	resp, err := client.R().
+	resp, _ := client.R().
 		SetDoNotParseResponse(true).
-		SetHeader("Content-Type", "application/json").
-		SetBody(common.MakeConversationRequest{
-			MessageID:       common.MessageID,
-			ParentMessageID: parentMessageID,
-			ConversationID:  common.ConversationID,
-			Content:         content,
-		}).
-		Post("/conversation")
-	if err != nil {
-		return
-	}
+		SetBody(fmt.Sprintf(`
+		{
+			"action": "next",
+			"messages": [{
+				"id": "%s",
+				"author": {
+					"role": "user"
+				},
+				"role": "user",
+				"content": {
+					"content_type": "text",
+					"parts": ["%s"]
+				}
+			}],
+			"parent_message_id": "%s",
+			"model": "%s",
+			"conversation_id": "%s"
+		},`, uuid.NewString(), content, parentMessageID, model, common.ConversationID)).Post("/conversation")
 
 	// get it again from response
 	common.ParentMessageID = ""
 
 	defer func(body io.ReadCloser) {
-		err := body.Close()
-		if err != nil {
-			return
-		}
+		body.Close()
 	}(resp.RawBody())
 
 	reader := bufio.NewReader(resp.RawBody())
 	for {
 		line, err := reader.ReadString('\n')
-		if err != nil {
+		if strings.HasSuffix(line, "[DONE]\n") || err != nil {
 			common.ConversationDoneChannel <- true
 			break
 		}
 
-		makeConversationResponse := parseEvent(line)
+		var makeConversationResponse *common.StartConversationResponse
+		json.Unmarshal([]byte(line[5:]), &makeConversationResponse)
+
+		if common.ParentMessageID == "" {
+			common.ParentMessageID = makeConversationResponse.Message.ID
+		}
+		if common.ConversationID == "" && tempConversationID == "" {
+			tempConversationID = makeConversationResponse.ConversationID
+		}
+
 		if makeConversationResponse != nil {
 			parts := makeConversationResponse.Message.Content.Parts
 			if len(parts) != 0 {
 				common.ResponseTextChannel <- parts[0]
 			}
+			if makeConversationResponse.Message.EndTurn == true {
+				common.ConversationDoneChannel <- true
+				break
+			}
 		}
 	}
 
 	if common.ConversationID == "" {
-		go api.GenerateConversationTitle(tempConversationID)
+		go api.GenerateTitle(tempConversationID)
 	} else {
 		common.ReloadConversationsChannel <- true
 	}
 }
 
-func parseEvent(line string) *common.MakeConversationResponse {
-	if strings.Contains(line, "DONE") {
-		return nil
-	}
-
-	if strings.HasPrefix(line, "data: ") {
-		var makeConversationResponse common.MakeConversationResponse
-		str := strings.TrimRight(strings.TrimPrefix(line, "data: "), "\n")
-		err := json.Unmarshal([]byte(str), &makeConversationResponse)
-		if err != nil {
-			return nil
-		}
-
-		if common.ParentMessageID == "" {
-			common.ParentMessageID = makeConversationResponse.Message.ID
-		}
-		if common.ConversationID == "" {
-			tempConversationID = makeConversationResponse.ConversationID
-		}
-
-		return &makeConversationResponse
-	}
-
-	return nil
-}
-
-func (api *API) GenerateConversationTitle(conversationID string) {
+func (api *API) GenerateTitle(conversationID string) {
 	_, err := client.R().
 		SetBody(map[string]string{
-			"message_id": common.MessageID,
+			"message_id": common.ParentMessageID,
+			"model":      model,
 		}).
 		Post("/conversation/gen_title/" + conversationID)
 	if err != nil {

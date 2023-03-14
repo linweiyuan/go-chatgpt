@@ -11,7 +11,6 @@ var (
 	ResponseTextChannel     = make(chan string)
 	ConversationDoneChannel = make(chan bool)
 
-	MessageID       string
 	ParentMessageID string
 	ConversationID  string
 
@@ -50,7 +49,7 @@ type Message struct {
 	Author  Author  `json:"author"`
 	Content Content `json:"content"`
 	ID      string  `json:"id"`
-	Role    string  `json:"role"`
+	EndTurn bool    `json:"end_turn"`
 }
 
 type Author struct {
@@ -62,14 +61,14 @@ type Content struct {
 	Parts       []string `json:"parts"`
 }
 
-type MakeConversationRequest struct {
+type StartConversationRequest struct {
 	MessageID       string `json:"message_id"`
 	ParentMessageID string `json:"parent_message_id"`
 	ConversationID  string `json:"conversation_id"`
 	Content         string `json:"content"`
 }
 
-type MakeConversationResponse struct {
+type StartConversationResponse struct {
 	ConversationID string  `json:"conversation_id"`
 	Message        Message `json:"message"`
 }
