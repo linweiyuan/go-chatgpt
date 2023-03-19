@@ -87,6 +87,8 @@ func (api *API) StartConversation(content string) {
 	}
 	resp, _ := client.R().
 		SetDoNotParseResponse(true).
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Accept", "text/event-stream").
 		SetBody(fmt.Sprintf(`
 		{
 			"action": "next",
@@ -116,6 +118,10 @@ func (api *API) StartConversation(content string) {
 	reader := bufio.NewReader(resp.RawBody())
 	for {
 		line, err := reader.ReadString('\n')
+		if line == "\n" {
+			continue
+		}
+
 		if strings.HasSuffix(line, "[DONE]\n") || err != nil {
 			common.ConversationDoneChannel <- true
 			break
