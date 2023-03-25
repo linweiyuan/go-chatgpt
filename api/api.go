@@ -38,7 +38,7 @@ func init() {
 
 //goland:noinspection GoUnhandledErrorResult
 func (api *API) GetConversations() *common.Conversations {
-	resp, _ := client.R().Get("/conversations")
+	resp, _ := client.R().Get("/conversations?offset=0&limit=100")
 
 	var conversations common.Conversations
 	json.Unmarshal(resp.Body(), &conversations)
