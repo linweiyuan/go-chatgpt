@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	client *resty.Client
-)
+	chatGPTClient *resty.Client
 
-const model = "text-davinci-002-render-sha"
+	apiClient *resty.Client
+)
 
 type API struct {
 }
@@ -32,13 +32,24 @@ func init() {
 	if serverUrl == "" {
 		log.Fatal("Please set server url first.")
 	}
-	client = resty.New().SetBaseURL(serverUrl)
-	client.SetHeader("Authorization", os.Getenv("ACCESS_TOKEN"))
+	accessToken := os.Getenv("ACCESS_TOKEN")
+	if accessToken == "" {
+		log.Fatal("Please set access token first.")
+	}
+	chatGPTClient = resty.New().SetBaseURL(serverUrl)
+	chatGPTClient.SetHeader("Authorization", accessToken)
+
+	apiKey := os.Getenv("API_KEY")
+	if apiKey == "" {
+		log.Fatal("Please set api key first.")
+	}
+	apiClient = resty.New().SetBaseURL(serverUrl)
+	apiClient.SetHeader("Authorization", apiKey)
 }
 
 //goland:noinspection GoUnhandledErrorResult
 func (api *API) GetConversations() *common.Conversations {
-	resp, _ := client.R().Get("/conversations?offset=0&limit=100")
+	resp, _ := chatGPTClient.R().Get("/conversations?offset=0&limit=100")
 
 	var conversations common.Conversations
 	json.Unmarshal(resp.Body(), &conversations)
@@ -48,7 +59,7 @@ func (api *API) GetConversations() *common.Conversations {
 
 //goland:noinspection GoUnhandledErrorResult
 func (api *API) GetConversation(conversationID string) {
-	resp, _ := client.R().Get("/conversation/" + conversationID)
+	resp, _ := chatGPTClient.R().Get("/conversation/" + conversationID)
 
 	var conversation common.Conversation
 	json.Unmarshal(resp.Body(), &conversation)
@@ -71,7 +82,7 @@ func handleConversationDetail(currentNode string, mapping map[string]common.Conv
 	parts := message.Content.Parts
 
 	if len(parts) != 0 && parts[0] != "" {
-		if message.Author.Role == "user" {
+		if message.Author.Role == common.RoleUser {
 			common.MessageChannel <- message
 		}
 	}
@@ -85,7 +96,7 @@ func (api *API) StartConversation(content string) {
 	if parentMessageID == "" || common.ConversationID == "" {
 		parentMessageID = uuid.NewString()
 	}
-	resp, _ := client.R().
+	resp, _ := chatGPTClient.R().
 		SetDoNotParseResponse(true).
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept", "text/event-stream").
@@ -95,9 +106,9 @@ func (api *API) StartConversation(content string) {
 			"messages": [{
 				"id": "%s",
 				"author": {
-					"role": "user"
+					"role": "%s"
 				},
-				"role": "user",
+				"role": "%s",
 				"content": {
 					"content_type": "text",
 					"parts": ["%s"]
@@ -106,7 +117,7 @@ func (api *API) StartConversation(content string) {
 			"parent_message_id": "%s",
 			"model": "%s",
 			"conversation_id": "%s"
-		},`, uuid.NewString(), content, parentMessageID, model, common.ConversationID)).Post("/conversation")
+		},`, uuid.NewString(), common.RoleUser, common.RoleUser, content, parentMessageID, common.ChatGPTModel, common.ConversationID)).Post("/conversation")
 
 	// get it again from response
 	common.ParentMessageID = ""
@@ -157,10 +168,10 @@ func (api *API) StartConversation(content string) {
 }
 
 func (api *API) GenerateTitle(conversationID string) {
-	_, err := client.R().
+	_, err := chatGPTClient.R().
 		SetBody(map[string]string{
 			"message_id": common.ParentMessageID,
-			"model":      model,
+			"model":      common.ChatGPTModel,
 		}).
 		Post("/conversation/gen_title/" + conversationID)
 	if err != nil {
@@ -168,4 +179,62 @@ func (api *API) GenerateTitle(conversationID string) {
 	}
 
 	common.ReloadConversationsChannel <- true
+}
+
+//goland:noinspection GoUnhandledErrorResult
+func (api *API) ChatCompletions(content string) {
+	chatCompletionsMessage := common.ChatCompletionsMessage{
+		Role:    common.RoleUser,
+		Content: content,
+	}
+	common.ApiMessages = append(common.ApiMessages, chatCompletionsMessage)
+	chatCompletionsRequest := common.ChatCompletionsRequest{
+		Model:    common.ApiModel,
+		Messages: common.ApiMessages,
+		Stream:   true,
+	}
+	data, _ := json.Marshal(chatCompletionsRequest)
+	resp, _ := apiClient.R().
+		SetDoNotParseResponse(true).
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Accept", "text/event-stream").
+		SetBody(data).
+		Post(common.ApiVersion + "/chat/completions")
+	defer func(body io.ReadCloser) {
+		body.Close()
+	}(resp.RawBody())
+
+	responseContent := ""
+	reader := bufio.NewReader(resp.RawBody())
+	for {
+		line, err := reader.ReadString('\n')
+		if line == "\n" {
+			continue
+		}
+
+		if strings.HasSuffix(line, "[DONE]\n") || err != nil {
+			common.ConversationDoneChannel <- true
+			break
+		}
+
+		var response *common.ChatCompletionsResponse
+		json.Unmarshal([]byte(line[5:]), &response)
+
+		if response != nil {
+			choice := response.Choices[0]
+			content := choice.Delta.Content
+			if content != "" {
+				responseContent += content
+				common.ResponseTextChannel <- content
+			}
+			if choice.FinishReason == "stop" {
+				common.ConversationDoneChannel <- true
+				break
+			}
+		}
+	}
+	common.ApiMessages = append(common.ApiMessages, common.ChatCompletionsMessage{
+		Role:    common.RoleAssistant,
+		Content: responseContent,
+	})
 }

@@ -2,6 +2,19 @@ package common
 
 import "github.com/rivo/tview"
 
+const (
+	ChooseModeTitle = "Which mode do you want to use?"
+	ApiMode         = "API"
+	ChatGPTMode     = "ChatGPT"
+	LoadingText     = "Loading..."
+	NewChatText     = "+ New chat"
+	ChatGPTModel    = "text-davinci-002-render-sha"
+	ApiModel        = "gpt-3.5-turbo"
+	ApiVersion      = "/v1"
+	RoleUser        = "user"
+	RoleAssistant   = "assistant"
+)
+
 var (
 	QuestionAnswerMap = make(map[string]string)
 
@@ -17,6 +30,10 @@ var (
 	ReloadConversationsChannel = make(chan bool)
 
 	CurrentNode *tview.TreeNode
+
+	IsChatGPT bool
+
+	ApiMessages []ChatCompletionsMessage
 )
 
 type Conversations struct {
@@ -61,14 +78,33 @@ type Content struct {
 	Parts       []string `json:"parts"`
 }
 
-type StartConversationRequest struct {
-	MessageID       string `json:"message_id"`
-	ParentMessageID string `json:"parent_message_id"`
-	ConversationID  string `json:"conversation_id"`
-	Content         string `json:"content"`
-}
-
 type StartConversationResponse struct {
 	ConversationID string  `json:"conversation_id"`
 	Message        Message `json:"message"`
+}
+
+type ChatCompletionsRequest struct {
+	Model    string                   `json:"model"`
+	Messages []ChatCompletionsMessage `json:"messages"`
+	Stream   bool                     `json:"stream"`
+}
+
+type ChatCompletionsMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type ChatCompletionsResponse struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int    `json:"created"`
+	Model   string `json:"model"`
+	Choices []struct {
+		Delta struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"delta"`
+		Index        int    `json:"index"`
+		FinishReason string `json:"finish_reason"`
+	} `json:"choices"`
 }

@@ -1,10 +1,10 @@
 package ui
 
 import (
+	"github.com/linweiyuan/go-chatgpt/api"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/linweiyuan/go-chatgpt/api"
 	"github.com/linweiyuan/go-chatgpt/common"
 	"github.com/rivo/tview"
 )
@@ -20,20 +20,54 @@ type UI struct {
 	api *api.API
 }
 
-func New(api *api.API) *UI {
-	return &UI{
-		app: tview.NewApplication(),
-
-		conversationTreeNodeRoot: tview.NewTreeNode("+ New chat"),
-		ConversationTreeView:     tview.NewTreeView(),
-		contentField:             tview.NewInputField(),
-		messageArea:              tview.NewTextArea(),
-
-		api: api,
-	}
-}
-
 func (ui *UI) Setup() {
+	ui.contentField.SetBorder(true)
+	ui.contentField.SetDoneFunc(func(key tcell.Key) {
+		text := strings.TrimSpace(ui.contentField.GetText())
+		if text == "" {
+			return
+		}
+
+		if common.IsChatGPT {
+			go ui.startConversation(text)
+		} else {
+			ui.messageArea.SetText("", false)
+			go ui.chatCompletions(text)
+		}
+	})
+	go func() {
+		for {
+			<-common.ConversationDoneChannel
+			ui.contentField.SetText("")
+		}
+	}()
+
+	ui.messageArea.SetBorder(true)
+	ui.messageArea.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		return nil
+	})
+
+	go func() {
+		for responseText := range common.ResponseTextChannel {
+			ui.app.QueueUpdateDraw(func() {
+				if common.IsChatGPT {
+					ui.messageArea.SetText(responseText, true)
+				} else {
+					ui.messageArea.SetText(ui.messageArea.GetText()+responseText, true)
+				}
+			})
+		}
+	}()
+
+	rightFlex := tview.NewFlex().SetDirection(tview.FlexRow)
+	rightFlex.AddItem(ui.contentField, 3, 1, false)
+	rightFlex.AddItem(ui.messageArea, 0, 9, false)
+
+	if !common.IsChatGPT {
+		ui.app.SetRoot(rightFlex, true).SetFocus(ui.contentField)
+		return
+	}
+
 	ui.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyTab {
 			switch ui.app.GetFocus() {
@@ -94,39 +128,6 @@ func (ui *UI) Setup() {
 		common.CurrentNode = node
 	})
 
-	ui.contentField.SetBorder(true)
-	ui.contentField.SetDoneFunc(func(key tcell.Key) {
-		text := strings.TrimSpace(ui.contentField.GetText())
-		if text == "" {
-			return
-		}
-
-		go ui.startConversation(text)
-	})
-	go func() {
-		for {
-			<-common.ConversationDoneChannel
-			ui.contentField.SetText("")
-		}
-	}()
-
-	ui.messageArea.SetBorder(true)
-	ui.messageArea.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		return nil
-	})
-
-	go func() {
-		for responseText := range common.ResponseTextChannel {
-			ui.app.QueueUpdateDraw(func() {
-				ui.messageArea.SetText(responseText, true)
-			})
-		}
-	}()
-
-	rightFlex := tview.NewFlex().SetDirection(tview.FlexRow)
-	rightFlex.AddItem(ui.contentField, 3, 1, false)
-	rightFlex.AddItem(ui.messageArea, 0, 9, false)
-
 	mainFlex := tview.NewFlex()
 	mainFlex.AddItem(ui.ConversationTreeView, 0, 3, false)
 	mainFlex.AddItem(rightFlex, 0, 7, false)
@@ -138,8 +139,30 @@ func (ui *UI) Setup() {
 		}
 	}()
 
-	if err := ui.app.SetRoot(mainFlex, true).SetFocus(ui.contentField).EnableMouse(true).Run(); err != nil {
-		panic(err)
+	ui.app.SetRoot(mainFlex, true).SetFocus(ui.contentField)
+}
+
+func New(api *api.API, app *tview.Application) *UI {
+	if common.IsChatGPT {
+		return &UI{
+			app: app,
+
+			conversationTreeNodeRoot: tview.NewTreeNode(common.NewChatText),
+			ConversationTreeView:     tview.NewTreeView(),
+			contentField:             tview.NewInputField(),
+			messageArea:              tview.NewTextArea(),
+
+			api: api,
+		}
+	}
+
+	return &UI{
+		app: app,
+
+		contentField: tview.NewInputField(),
+		messageArea:  tview.NewTextArea(),
+
+		api: api,
 	}
 }
 
@@ -191,4 +214,11 @@ func (ui *UI) startConversation(text string) {
 	defer ui.StopLoading(ui.messageArea.Box)
 
 	ui.api.StartConversation(text)
+}
+
+func (ui *UI) chatCompletions(text string) {
+	ui.StartLoading(ui.messageArea.Box)
+	defer ui.StopLoading(ui.messageArea.Box)
+
+	ui.api.ChatCompletions(text)
 }
