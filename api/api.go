@@ -238,3 +238,13 @@ func (api *API) ChatCompletions(content string) {
 		Content: responseContent,
 	})
 }
+
+//goland:noinspection GoUnhandledErrorResult
+func (api *API) CheckUsage() *common.CheckUsageResponse {
+	resp, _ := apiClient.R().Get("/dashboard/billing/credit_grants")
+
+	var checkUsageResponse common.CheckUsageResponse
+	json.Unmarshal(resp.Body(), &checkUsageResponse)
+
+	return &checkUsageResponse
+}

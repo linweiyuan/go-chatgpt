@@ -31,5 +31,7 @@ func setup(app *tview.Application) {
 	tui.Setup()
 	if common.IsChatGPT {
 		go tui.GetConversations()
+	} else {
+		go tui.CheckUsage()
 	}
 }

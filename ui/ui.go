@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"github.com/linweiyuan/go-chatgpt/api"
 	"strings"
 
@@ -21,6 +22,9 @@ type UI struct {
 }
 
 func (ui *UI) Setup() {
+	if !common.IsChatGPT {
+		ui.contentField.SetTitleAlign(tview.AlignRight)
+	}
 	ui.contentField.SetBorder(true)
 	ui.contentField.SetDoneFunc(func(key tcell.Key) {
 		text := strings.TrimSpace(ui.contentField.GetText())
@@ -221,4 +225,17 @@ func (ui *UI) chatCompletions(text string) {
 	defer ui.StopLoading(ui.messageArea.Box)
 
 	ui.api.ChatCompletions(text)
+}
+
+func (ui *UI) CheckUsage() {
+	checkUsageResponse := ui.api.CheckUsage()
+	if checkUsageResponse != nil {
+		ui.app.QueueUpdateDraw(func() {
+			ui.contentField.SetTitle(fmt.Sprintf("Total Granted: %.2f | Total Used: %.2f | Total Available: %.2f",
+				checkUsageResponse.TotalGranted,
+				checkUsageResponse.TotalUsed,
+				checkUsageResponse.TotalAvailable,
+			))
+		})
+	}
 }

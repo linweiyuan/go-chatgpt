@@ -108,3 +108,9 @@ type ChatCompletionsResponse struct {
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 }
+
+type CheckUsageResponse struct {
+	TotalGranted   float32 `json:"total_granted"`
+	TotalUsed      float64 `json:"total_used"`
+	TotalAvailable float64 `json:"total_available"`
+}
