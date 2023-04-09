@@ -12,4 +12,4 @@
 | API_KEY      | skxxx         | Your api key.      |
 | SERVER_URL   | http(s)://xxx | Your server url.   |
 
-[![go-chatgpt](https://asciinema.org/a/dh8QWcMPpefJ4mQ4n4i5E3ITc.svg)](https://asciinema.org/a/dh8QWcMPpefJ4mQ4n4i5E3ITc?autoplay=1)
+[![go-chatgpt](https://asciinema.org/a/al9lAio3ORHSp0KoUIbh2z2Dp.svg)](https://asciinema.org/a/al9lAio3ORHSp0KoUIbh2z2Dp?autoplay=1)
