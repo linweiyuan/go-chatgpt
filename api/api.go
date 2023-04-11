@@ -116,7 +116,8 @@ func (api *API) StartConversation(content string) {
 			}],
 			"parent_message_id": "%s",
 			"model": "%s",
-			"conversation_id": "%s"
+			"conversation_id": "%s",
+			"continue_text": "continue"
 		}`, uuid.NewString(), common.RoleUser, common.RoleUser, content, parentMessageID, common.ChatGPTModel, common.ConversationID)).Post("/conversation")
 
 	// get it again from response
