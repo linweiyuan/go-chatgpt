@@ -56,8 +56,19 @@ func (ui *UI) Setup() {
 				})
 
 			ui.app.SetRoot(modal(form, 40, 10), true)
-
 		}
+
+		if event.Key() == tcell.KeyCtrlR {
+			node := ui.ConversationTreeView.GetCurrentNode()
+			level := node.GetLevel()
+			switch level {
+			case 0:
+				go ui.GetConversations()
+			case 1:
+				ui.renderConversationContent(node)
+			}
+		}
+
 		return event
 	})
 
@@ -141,30 +152,9 @@ func (ui *UI) Setup() {
 		}
 
 		if len(node.GetChildren()) == 0 {
-			conversationItem, ok := node.GetReference().(common.ConversationItem)
-			if !ok {
+			if !ui.renderConversationContent(node) {
 				return
 			}
-
-			go ui.getConversation(conversationItem.ID)
-
-			go func(currentNode *tview.TreeNode) {
-				for {
-					select {
-					case message := <-common.MessageChannel:
-						questionTreeNode := tview.NewTreeNode(message.Content.Parts[0]).SetReference(message)
-						questionTreeNode.SetSelectedFunc(func() {
-							message := questionTreeNode.GetReference().(common.Message)
-							ui.messageArea.SetText(common.QuestionAnswerMap[message.ID], true)
-						})
-						ui.app.QueueUpdateDraw(func() {
-							currentNode.AddChild(questionTreeNode)
-						})
-					case <-common.ExitForLoopChannel:
-						return
-					}
-				}
-			}(node)
 		}
 		ui.messageArea.SetText("", false)
 
@@ -182,6 +172,37 @@ func (ui *UI) Setup() {
 	}()
 
 	ui.app.SetRoot(mainFlex, true).SetFocus(ui.contentField)
+}
+
+func (ui *UI) renderConversationContent(node *tview.TreeNode) bool {
+	conversationItem, ok := node.GetReference().(common.ConversationItem)
+	if !ok {
+		return false
+	}
+
+	go ui.getConversation(conversationItem.ID)
+
+	go func(currentNode *tview.TreeNode) {
+		currentNode.ClearChildren()
+
+		for {
+			select {
+			case message := <-common.MessageChannel:
+				questionTreeNode := tview.NewTreeNode(message.Content.Parts[0]).SetReference(message)
+				questionTreeNode.SetSelectedFunc(func() {
+					message := questionTreeNode.GetReference().(common.Message)
+					ui.messageArea.SetText(common.QuestionAnswerMap[message.ID], true)
+				})
+				ui.app.QueueUpdateDraw(func() {
+					currentNode.AddChild(questionTreeNode)
+				})
+			case <-common.ExitForLoopChannel:
+				return
+			}
+		}
+	}(node)
+
+	return true
 }
 
 func New(api *api.API, app *tview.Application) *UI {
