@@ -22,6 +22,45 @@ type UI struct {
 }
 
 func (ui *UI) Setup() {
+	mainFlex := tview.NewFlex()
+
+	modal := func(p tview.Primitive, width, height int) tview.Primitive {
+		return tview.NewFlex().
+			AddItem(nil, 0, 1, false).
+			AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+				AddItem(nil, 0, 1, false).
+				AddItem(p, height, 1, true).
+				AddItem(nil, 0, 1, false), width, 1, true).
+			AddItem(nil, 0, 1, false)
+	}
+
+	ui.ConversationTreeView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyF2 {
+			node := ui.ConversationTreeView.GetCurrentNode()
+			level := node.GetLevel()
+			if level == 0 || level == 2 {
+				return nil
+			}
+
+			form := tview.NewForm().
+				AddTextView("Current title", node.GetText(), 0, 2, true, false).
+				AddInputField("New title", "", 0, nil, func(newTitle string) {
+					node.SetText(newTitle)
+				}).
+				AddButton("Save", func() {
+					go ui.renameTitle(node.GetText())
+					ui.app.SetRoot(mainFlex, true).SetFocus(ui.ConversationTreeView)
+				}).
+				AddButton("Quit", func() {
+					ui.app.SetRoot(mainFlex, true).SetFocus(ui.ConversationTreeView)
+				})
+
+			ui.app.SetRoot(modal(form, 40, 10), true)
+
+		}
+		return event
+	})
+
 	if !common.IsChatGPT {
 		ui.contentField.SetTitleAlign(tview.AlignRight)
 	}
@@ -132,7 +171,6 @@ func (ui *UI) Setup() {
 		common.CurrentNode = node
 	})
 
-	mainFlex := tview.NewFlex()
 	mainFlex.AddItem(ui.ConversationTreeView, 0, 3, false)
 	mainFlex.AddItem(rightFlex, 0, 7, false)
 
@@ -218,6 +256,13 @@ func (ui *UI) startConversation(text string) {
 	defer ui.StopLoading(ui.messageArea.Box)
 
 	ui.api.StartConversation(text)
+}
+
+func (ui *UI) renameTitle(text string) {
+	ui.StartLoading(ui.ConversationTreeView.Box)
+	defer ui.StopLoading(ui.ConversationTreeView.Box)
+
+	ui.api.RenameTitle(text)
 }
 
 func (ui *UI) chatCompletions(text string) {

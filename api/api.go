@@ -182,6 +182,19 @@ func (api *API) GenerateTitle(conversationID string) {
 	common.ReloadConversationsChannel <- true
 }
 
+func (api *API) RenameTitle(title string) {
+	_, err := chatGPTClient.R().
+		SetBody(map[string]string{
+			"title": title,
+		}).
+		Patch("/conversation/" + common.ConversationID)
+	if err != nil {
+		return
+	}
+
+	// seems no need to reload conversation list
+}
+
 //goland:noinspection GoUnhandledErrorResult
 func (api *API) ChatCompletions(content string) {
 	chatCompletionsMessage := common.ChatCompletionsMessage{
