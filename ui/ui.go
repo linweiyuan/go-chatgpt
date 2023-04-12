@@ -22,56 +22,6 @@ type UI struct {
 }
 
 func (ui *UI) Setup() {
-	mainFlex := tview.NewFlex()
-
-	modal := func(p tview.Primitive, width, height int) tview.Primitive {
-		return tview.NewFlex().
-			AddItem(nil, 0, 1, false).
-			AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
-				AddItem(nil, 0, 1, false).
-				AddItem(p, height, 1, true).
-				AddItem(nil, 0, 1, false), width, 1, true).
-			AddItem(nil, 0, 1, false)
-	}
-
-	ui.ConversationTreeView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyF2 {
-			node := ui.ConversationTreeView.GetCurrentNode()
-			level := node.GetLevel()
-			if level == 0 || level == 2 {
-				return nil
-			}
-
-			form := tview.NewForm().
-				AddTextView("Current title", node.GetText(), 0, 2, true, false).
-				AddInputField("New title", "", 0, nil, func(newTitle string) {
-					node.SetText(newTitle)
-				}).
-				AddButton("Save", func() {
-					go ui.renameTitle(node.GetText())
-					ui.app.SetRoot(mainFlex, true).SetFocus(ui.ConversationTreeView)
-				}).
-				AddButton("Quit", func() {
-					ui.app.SetRoot(mainFlex, true).SetFocus(ui.ConversationTreeView)
-				})
-
-			ui.app.SetRoot(modal(form, 40, 10), true)
-		}
-
-		if event.Key() == tcell.KeyCtrlR {
-			node := ui.ConversationTreeView.GetCurrentNode()
-			level := node.GetLevel()
-			switch level {
-			case 0:
-				go ui.GetConversations()
-			case 1:
-				ui.renderConversationContent(node)
-			}
-		}
-
-		return event
-	})
-
 	if !common.IsChatGPT {
 		ui.contentField.SetTitleAlign(tview.AlignRight)
 	}
@@ -113,6 +63,8 @@ func (ui *UI) Setup() {
 		}
 	}()
 
+	mainFlex := tview.NewFlex()
+
 	rightFlex := tview.NewFlex().SetDirection(tview.FlexRow)
 	rightFlex.AddItem(ui.contentField, 3, 1, false)
 	rightFlex.AddItem(ui.messageArea, 0, 9, false)
@@ -151,7 +103,7 @@ func (ui *UI) Setup() {
 			common.ConversationID = conversationItem.ID
 		}
 
-		if len(node.GetChildren()) == 0 {
+		if node.GetLevel() == 1 {
 			if !ui.renderConversationContent(node) {
 				return
 			}
@@ -159,6 +111,83 @@ func (ui *UI) Setup() {
 		ui.messageArea.SetText("", false)
 
 		common.CurrentNode = node
+	})
+	modal := func(p tview.Primitive, width, height int) tview.Primitive {
+		return tview.NewFlex().
+			AddItem(nil, 0, 1, false).
+			AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+				AddItem(nil, 0, 1, false).
+				AddItem(p, height, 1, true).
+				AddItem(nil, 0, 1, false), width, 1, true).
+			AddItem(nil, 0, 1, false)
+	}
+	ui.ConversationTreeView.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlE {
+			node := ui.ConversationTreeView.GetCurrentNode()
+			level := node.GetLevel()
+			if level == 0 || level == 2 {
+				return nil
+			}
+
+			form := tview.NewForm().
+				AddTextView(common.CurrentTitle, node.GetText(), 0, 2, true, false).
+				AddInputField(common.NewTitle, "", 0, nil, func(newTitle string) {
+					node.SetText(newTitle)
+				}).
+				AddButton(common.Save, func() {
+					go ui.renameTitle(getConversationID(node), node.GetText())
+					ui.app.SetRoot(mainFlex, true).SetFocus(ui.ConversationTreeView)
+				}).
+				AddButton(common.Quit, func() {
+					ui.app.SetRoot(mainFlex, true).SetFocus(ui.ConversationTreeView)
+				})
+
+			ui.app.SetRoot(modal(form, 40, 10), true)
+		}
+
+		if event.Key() == tcell.KeyCtrlR {
+			node := ui.ConversationTreeView.GetCurrentNode()
+			level := node.GetLevel()
+			switch level {
+			case 0:
+				go ui.GetConversations()
+			case 1:
+				ui.renderConversationContent(node)
+			}
+		}
+
+		if event.Key() == tcell.KeyCtrlD {
+			node := ui.ConversationTreeView.GetCurrentNode()
+			level := node.GetLevel()
+			switch level {
+			case 0:
+				modal := tview.NewModal().SetText(fmt.Sprintf(common.ClearAllConversation)).
+					AddButtons([]string{common.Yes, common.No}).SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+					switch buttonLabel {
+					case common.Yes:
+						go ui.clearConversations()
+						ui.app.SetRoot(mainFlex, true).SetFocus(ui.ConversationTreeView)
+					case common.No:
+						ui.app.SetRoot(mainFlex, true).SetFocus(ui.ConversationTreeView)
+					}
+				})
+				ui.app.SetRoot(modal, true)
+			case 1:
+				modal := tview.NewModal().SetText(fmt.Sprintf(common.DeleteConversation)).
+					AddButtons([]string{common.Yes, common.No}).SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+					switch buttonLabel {
+					case common.Yes:
+						go ui.deleteConversation(node)
+						ui.app.SetRoot(mainFlex, true).SetFocus(ui.ConversationTreeView)
+					case common.No:
+						ui.app.SetRoot(mainFlex, true).SetFocus(ui.ConversationTreeView)
+					}
+				})
+				ui.app.SetRoot(modal, true)
+			}
+		}
+
+		return event
 	})
 
 	mainFlex.AddItem(ui.ConversationTreeView, 0, 3, false)
@@ -175,12 +204,7 @@ func (ui *UI) Setup() {
 }
 
 func (ui *UI) renderConversationContent(node *tview.TreeNode) bool {
-	conversationItem, ok := node.GetReference().(common.ConversationItem)
-	if !ok {
-		return false
-	}
-
-	go ui.getConversation(conversationItem.ID)
+	go ui.getConversation(getConversationID(node))
 
 	go func(currentNode *tview.TreeNode) {
 		currentNode.ClearChildren()
@@ -261,6 +285,7 @@ func (ui *UI) renderConversationTree(conversations *common.Conversations) {
 
 		if common.CurrentNode != nil {
 			ui.ConversationTreeView.SetCurrentNode(common.CurrentNode)
+			ui.renderConversationContent(common.CurrentNode)
 		}
 	})
 }
@@ -279,11 +304,25 @@ func (ui *UI) startConversation(text string) {
 	ui.api.StartConversation(text)
 }
 
-func (ui *UI) renameTitle(text string) {
+func (ui *UI) renameTitle(conversationID string, text string) {
 	ui.StartLoading(ui.ConversationTreeView.Box)
 	defer ui.StopLoading(ui.ConversationTreeView.Box)
 
-	ui.api.RenameTitle(text)
+	ui.api.RenameTitle(conversationID, text)
+}
+
+func (ui *UI) deleteConversation(node *tview.TreeNode) {
+	ui.StartLoading(ui.ConversationTreeView.Box)
+	defer ui.StopLoading(ui.ConversationTreeView.Box)
+
+	ui.api.DeleteConversation(getConversationID(node))
+}
+
+func (ui *UI) clearConversations() {
+	ui.StartLoading(ui.ConversationTreeView.Box)
+	defer ui.StopLoading(ui.ConversationTreeView.Box)
+
+	ui.api.ClearConversations()
 }
 
 func (ui *UI) chatCompletions(text string) {
@@ -304,4 +343,9 @@ func (ui *UI) CheckUsage() {
 			))
 		})
 	}
+}
+
+func getConversationID(node *tview.TreeNode) string {
+	conversationItem, _ := node.GetReference().(common.ConversationItem)
+	return conversationItem.ID
 }

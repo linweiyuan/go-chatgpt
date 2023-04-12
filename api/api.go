@@ -182,17 +182,45 @@ func (api *API) GenerateTitle(conversationID string) {
 	common.ReloadConversationsChannel <- true
 }
 
-func (api *API) RenameTitle(title string) {
+func (api *API) RenameTitle(conversationID string, title string) {
 	_, err := chatGPTClient.R().
 		SetBody(map[string]string{
 			"title": title,
 		}).
-		Patch("/conversation/" + common.ConversationID)
+		Patch("/conversation/" + conversationID)
 	if err != nil {
 		return
 	}
 
 	// seems no need to reload conversation list
+}
+
+func (api *API) DeleteConversation(conversationID string) {
+	_, err := chatGPTClient.R().
+		SetBody(map[string]bool{
+			"is_visible": false,
+		}).
+		Patch("/conversation/" + conversationID)
+	if err != nil {
+		return
+	}
+
+	common.ReloadConversationsChannel <- true
+}
+
+func (api *API) ClearConversations() {
+	_, err := chatGPTClient.R().
+		SetBody(map[string]bool{
+			"is_visible": false,
+		}).
+		Patch("/conversations")
+	if err != nil {
+		return
+	}
+
+	common.ConversationID = ""
+	common.CurrentNode = nil
+	common.ReloadConversationsChannel <- true
 }
 
 //goland:noinspection GoUnhandledErrorResult
