@@ -11,12 +11,12 @@ func main() {
 	app := tview.NewApplication()
 
 	modal := tview.NewModal().SetText(common.ChooseModeTitle).
-		AddButtons([]string{common.ApiMode, common.ChatGPTMode}).SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+		AddButtons([]string{common.ChatGPTMode, common.ApiMode}).SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 		switch buttonLabel {
-		case common.ApiMode:
-			common.IsChatGPT = false
 		case common.ChatGPTMode:
 			common.IsChatGPT = true
+		case common.ApiMode:
+			common.IsChatGPT = false
 		}
 		setup(app)
 	})
