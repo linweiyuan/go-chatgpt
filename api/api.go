@@ -117,6 +117,8 @@ func (api *API) StartConversation(content string) {
 			"parent_message_id": "%s",
 			"model": "%s",
 			"conversation_id": "%s",
+			"timezone_offset_min": -480,
+			"variant_purpose": "none",
 			"continue_text": "continue"
 		}`, uuid.NewString(), common.RoleUser, common.RoleUser, content, parentMessageID, common.ChatGPTModel, common.ConversationID)).Post("/conversation")
 
