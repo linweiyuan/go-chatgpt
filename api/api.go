@@ -156,10 +156,6 @@ func (api *API) StartConversation(content string) {
 			if len(parts) != 0 {
 				common.ResponseTextChannel <- parts[0]
 			}
-			if makeConversationResponse.Message.EndTurn == true {
-				common.ConversationDoneChannel <- true
-				break
-			}
 		}
 	}
 
