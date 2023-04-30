@@ -147,7 +147,7 @@ func (api *API) StartConversation(content string) {
 		var makeConversationResponse *common.StartConversationResponse
 		json.Unmarshal([]byte(line[5:]), &makeConversationResponse)
 
-		if common.ParentMessageID == "" {
+		if common.ParentMessageID == "" && makeConversationResponse.Message.Author.Role == "assistant" {
 			common.ParentMessageID = makeConversationResponse.Message.ID
 		}
 		if common.ConversationID == "" && tempConversationID == "" {
@@ -173,7 +173,6 @@ func (api *API) GenerateTitle(conversationID string) {
 	_, err := chatGPTClient.R().
 		SetBody(map[string]string{
 			"message_id": common.ParentMessageID,
-			"model":      common.ChatGPTModel,
 		}).
 		Post("/conversation/gen_title/" + conversationID)
 	if err != nil {
