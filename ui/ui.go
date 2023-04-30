@@ -33,7 +33,7 @@ func (ui *UI) Setup() {
 		}
 
 		if common.IsChatGPT {
-			go ui.startConversation(text)
+			go ui.createConversation(text)
 		} else {
 			ui.messageArea.SetText("", false)
 			go ui.chatCompletions(text)
@@ -297,11 +297,11 @@ func (ui *UI) getConversation(conversationItemID string) {
 	ui.api.GetConversation(conversationItemID)
 }
 
-func (ui *UI) startConversation(text string) {
+func (ui *UI) createConversation(text string) {
 	ui.StartLoading(ui.messageArea.Box)
 	defer ui.StopLoading(ui.messageArea.Box)
 
-	ui.api.StartConversation(text)
+	ui.api.CreateConversation(text)
 }
 
 func (ui *UI) renameTitle(conversationID string, text string) {

@@ -91,7 +91,7 @@ func handleConversationDetail(currentNode string, mapping map[string]common.Conv
 var tempConversationID string
 
 //goland:noinspection GoUnhandledErrorResult
-func (api *API) StartConversation(content string) {
+func (api *API) CreateConversation(content string) {
 	parentMessageID := common.ParentMessageID
 	if parentMessageID == "" || common.ConversationID == "" {
 		parentMessageID = uuid.NewString()
@@ -118,8 +118,7 @@ func (api *API) StartConversation(content string) {
 			"model": "%s",
 			"conversation_id": "%s",
 			"timezone_offset_min": -480,
-			"variant_purpose": "none",
-			"continue_text": "continue"
+			"variant_purpose": "none"
 		}`, uuid.NewString(), common.RoleUser, common.RoleUser, content, parentMessageID, common.ChatGPTModel, common.ConversationID)).Post("/conversation")
 
 	// get it again from response
@@ -132,10 +131,7 @@ func (api *API) StartConversation(content string) {
 	reader := bufio.NewReader(resp.RawBody())
 	for {
 		line, err := reader.ReadString('\n')
-		if line == "\n" ||
-			line == "\r\n" ||
-			strings.HasPrefix(line, "event") ||
-			strings.HasPrefix(line, "data: 20") {
+		if line == "\n" {
 			continue
 		}
 
@@ -144,18 +140,18 @@ func (api *API) StartConversation(content string) {
 			break
 		}
 
-		var makeConversationResponse *common.StartConversationResponse
-		json.Unmarshal([]byte(line[5:]), &makeConversationResponse)
+		var createConversationResponse *common.CreateConversationResponse
+		json.Unmarshal([]byte(line[6:]), &createConversationResponse)
 
-		if common.ParentMessageID == "" && makeConversationResponse.Message.Author.Role == "assistant" {
-			common.ParentMessageID = makeConversationResponse.Message.ID
+		if common.ParentMessageID == "" && createConversationResponse.Message.Author.Role == "assistant" {
+			common.ParentMessageID = createConversationResponse.Message.ID
 		}
 		if common.ConversationID == "" && tempConversationID == "" {
-			tempConversationID = makeConversationResponse.ConversationID
+			tempConversationID = createConversationResponse.ConversationID
 		}
 
-		if makeConversationResponse != nil {
-			parts := makeConversationResponse.Message.Content.Parts
+		if createConversationResponse != nil {
+			parts := createConversationResponse.Message.Content.Parts
 			if len(parts) != 0 {
 				common.ResponseTextChannel <- parts[0]
 			}

@@ -86,7 +86,7 @@ type Content struct {
 	Parts       []string `json:"parts"`
 }
 
-type StartConversationResponse struct {
+type CreateConversationResponse struct {
 	ConversationID string  `json:"conversation_id"`
 	Message        Message `json:"message"`
 }
