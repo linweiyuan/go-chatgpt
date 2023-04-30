@@ -132,7 +132,10 @@ func (api *API) StartConversation(content string) {
 	reader := bufio.NewReader(resp.RawBody())
 	for {
 		line, err := reader.ReadString('\n')
-		if line == "\n" {
+		if line == "\n" ||
+			line == "\r\n" ||
+			strings.HasPrefix(line, "event") ||
+			strings.HasPrefix(line, "data: 20") {
 			continue
 		}
 
