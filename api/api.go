@@ -28,20 +28,20 @@ func New() *API {
 }
 
 func init() {
-	serverUrl := os.Getenv("SERVER_URL")
+	serverUrl := os.Getenv("GO_CHATGPT_API_URL")
 	if serverUrl == "" {
-		log.Fatal("Please set server url first.")
+		log.Fatal("Please set GO_CHATGPT_API_URL first.")
 	}
-	accessToken := os.Getenv("ACCESS_TOKEN")
+	accessToken := os.Getenv("GO_CHATGPT_ACCESS_TOKEN")
 	if accessToken == "" {
-		log.Fatal("Please set access token first.")
+		log.Fatal("Please set GO_CHATGPT_ACCESS_TOKEN first.")
 	}
 	chatGPTClient = resty.New().SetBaseURL(serverUrl)
 	chatGPTClient.SetHeader("Authorization", accessToken)
 
-	apiKey := os.Getenv("API_KEY")
+	apiKey := os.Getenv("GO_CHATGPT_API_KEY")
 	if apiKey == "" {
-		log.Fatal("Please set api key first.")
+		log.Fatal("Please set GO_CHATGPT_API_KEY first.")
 	}
 	apiClient = resty.New().SetBaseURL(serverUrl)
 	apiClient.SetHeader("Authorization", apiKey)
@@ -49,7 +49,7 @@ func init() {
 
 //goland:noinspection GoUnhandledErrorResult
 func (api *API) GetConversations() *common.Conversations {
-	resp, _ := chatGPTClient.R().Get("/conversations?offset=0&limit=100")
+	resp, _ := chatGPTClient.R().Get("/chatgpt/conversations?offset=0&limit=100")
 
 	var conversations common.Conversations
 	json.Unmarshal(resp.Body(), &conversations)
@@ -59,7 +59,7 @@ func (api *API) GetConversations() *common.Conversations {
 
 //goland:noinspection GoUnhandledErrorResult
 func (api *API) GetConversation(conversationID string) {
-	resp, _ := chatGPTClient.R().Get("/conversation/" + conversationID)
+	resp, _ := chatGPTClient.R().Get("/chatgpt/conversation/" + conversationID)
 
 	var conversation common.Conversation
 	json.Unmarshal(resp.Body(), &conversation)
@@ -119,7 +119,8 @@ func (api *API) CreateConversation(content string) {
 			"conversation_id": "%s",
 			"timezone_offset_min": -480,
 			"variant_purpose": "none"
-		}`, uuid.NewString(), common.RoleUser, common.RoleUser, content, parentMessageID, common.ChatGPTModel, common.ConversationID)).Post("/conversation")
+		}`, uuid.NewString(), common.RoleUser, common.RoleUser, content, parentMessageID, common.ChatGPTModel, common.ConversationID)).
+		Post("/chatgpt/conversation")
 
 	// get it again from response
 	common.ParentMessageID = ""
@@ -170,7 +171,7 @@ func (api *API) GenerateTitle(conversationID string) {
 		SetBody(map[string]string{
 			"message_id": common.ParentMessageID,
 		}).
-		Post("/conversation/gen_title/" + conversationID)
+		Post("/chatgpt/conversation/gen_title/" + conversationID)
 	if err != nil {
 		return
 	}
@@ -183,7 +184,7 @@ func (api *API) RenameTitle(conversationID string, title string) {
 		SetBody(map[string]string{
 			"title": title,
 		}).
-		Patch("/conversation/" + conversationID)
+		Patch("/chatgpt/conversation/" + conversationID)
 	if err != nil {
 		return
 	}
@@ -196,7 +197,7 @@ func (api *API) DeleteConversation(conversationID string) {
 		SetBody(map[string]bool{
 			"is_visible": false,
 		}).
-		Patch("/conversation/" + conversationID)
+		Patch("/chatgpt/conversation/" + conversationID)
 	if err != nil {
 		return
 	}
@@ -209,7 +210,7 @@ func (api *API) ClearConversations() {
 		SetBody(map[string]bool{
 			"is_visible": false,
 		}).
-		Patch("/conversations")
+		Patch("/chatgpt/conversations")
 	if err != nil {
 		return
 	}
@@ -237,7 +238,7 @@ func (api *API) ChatCompletions(content string) {
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept", "text/event-stream").
 		SetBody(data).
-		Post(common.ApiVersion + "/chat/completions")
+		Post(common.PlatformPrefix + common.ApiVersion + "/chat/completions")
 	defer func(body io.ReadCloser) {
 		body.Close()
 	}(resp.RawBody())
@@ -279,7 +280,7 @@ func (api *API) ChatCompletions(content string) {
 
 //goland:noinspection GoUnhandledErrorResult
 func (api *API) CheckUsage() *common.CheckUsageResponse {
-	resp, _ := apiClient.R().Get("/dashboard/billing/credit_grants")
+	resp, _ := apiClient.R().Get(common.PlatformPrefix + "/dashboard/billing/credit_grants")
 
 	var checkUsageResponse common.CheckUsageResponse
 	json.Unmarshal(resp.Body(), &checkUsageResponse)

@@ -10,6 +10,7 @@ const (
 	NewChatText          = "+ New chat"
 	ChatGPTModel         = "text-davinci-002-render-sha"
 	ApiModel             = "gpt-3.5-turbo"
+	PlatformPrefix       = "/platform"
 	ApiVersion           = "/v1"
 	RoleUser             = "user"
 	RoleAssistant        = "assistant"
