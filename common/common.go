@@ -3,25 +3,27 @@ package common
 import "github.com/rivo/tview"
 
 const (
-	ChooseModeTitle      = "Which mode do you want to use?"
-	ApiMode              = "API"
-	ChatGPTMode          = "ChatGPT"
-	LoadingText          = "Loading..."
-	NewChatText          = "+ New chat"
-	ChatGPTModel         = "text-davinci-002-render-sha"
-	ApiModel             = "gpt-3.5-turbo"
-	PlatformPrefix       = "/platform"
-	ApiVersion           = "/v1"
-	RoleUser             = "user"
-	RoleAssistant        = "assistant"
-	CurrentTitle         = "Current title"
-	NewTitle             = "New title"
-	Save                 = "Save"
-	Quit                 = "Quit"
-	ClearAllConversation = "Do you want to clear all conversation?"
-	Yes                  = "Yes"
-	No                   = "No"
-	DeleteConversation   = "Are you sure to to delete this conversation?"
+	ChooseModeTitle                    = "Which mode do you want to use?"
+	ApiMode                            = "API"
+	ChatGPTMode                        = "ChatGPT"
+	LoadingText                        = "Loading..."
+	NewChatText                        = "+ New chat"
+	ChatGPTModel                       = "text-davinci-002-render-sha"
+	ApiModel                           = "gpt-3.5-turbo"
+	PlatformPrefix                     = "/platform"
+	ApiVersion                         = "/v1"
+	RoleUser                           = "user"
+	RoleAssistant                      = "assistant"
+	CurrentTitle                       = "Current title"
+	NewTitle                           = "New title"
+	Save                               = "Save"
+	Quit                               = "Quit"
+	ClearAllConversation               = "Do you want to clear all conversation?"
+	Yes                                = "Yes"
+	No                                 = "No"
+	DeleteConversation                 = "Are you sure to to delete this conversation?"
+	ResponseTypeMaxTokens              = "max_tokens"
+	ResponseStatusFinishedSuccessfully = "finished_successfully"
 )
 
 var (
@@ -72,10 +74,17 @@ type ConversationDetail struct {
 }
 
 type Message struct {
-	Author  Author  `json:"author"`
-	Content Content `json:"content"`
-	ID      string  `json:"id"`
-	EndTurn bool    `json:"end_turn"`
+	Author   Author  `json:"author"`
+	Content  Content `json:"content"`
+	ID       string  `json:"id"`
+	EndTurn  bool    `json:"end_turn"`
+	Status   string  `json:"status"`
+	Metadata struct {
+		MessageType   string `json:"message_type"`
+		FinishDetails struct {
+			Type string `json:"type"`
+		} `json:"finish_details"`
+	} `json:"metadata"`
 }
 
 type Author struct {

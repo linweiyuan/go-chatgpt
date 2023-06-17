@@ -129,6 +129,7 @@ func (api *API) CreateConversation(content string) {
 		body.Close()
 	}(resp.RawBody())
 
+	oldContent := ""
 	reader := bufio.NewReader(resp.RawBody())
 	for {
 		line, err := reader.ReadString('\n')
@@ -143,6 +144,9 @@ func (api *API) CreateConversation(content string) {
 
 		var createConversationResponse *common.CreateConversationResponse
 		json.Unmarshal([]byte(line[6:]), &createConversationResponse)
+		if createConversationResponse.Message.Metadata.FinishDetails.Type == common.ResponseTypeMaxTokens && createConversationResponse.Message.Status == common.ResponseStatusFinishedSuccessfully {
+			oldContent += createConversationResponse.Message.Content.Parts[0]
+		}
 
 		if common.ParentMessageID == "" && createConversationResponse.Message.Author.Role == "assistant" {
 			common.ParentMessageID = createConversationResponse.Message.ID
@@ -154,7 +158,7 @@ func (api *API) CreateConversation(content string) {
 		if createConversationResponse != nil {
 			parts := createConversationResponse.Message.Content.Parts
 			if len(parts) != 0 {
-				common.ResponseTextChannel <- parts[0]
+				common.ResponseTextChannel <- oldContent + parts[0]
 			}
 		}
 	}
