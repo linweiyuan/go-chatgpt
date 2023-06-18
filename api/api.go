@@ -49,7 +49,7 @@ func init() {
 
 //goland:noinspection GoUnhandledErrorResult
 func (api *API) GetConversations() *common.Conversations {
-	resp, _ := chatGPTClient.R().Get("/chatgpt/conversations?offset=0&limit=100")
+	resp, _ := chatGPTClient.R().Get("/chatgpt/backend-api/conversations?offset=0&limit=100")
 
 	var conversations common.Conversations
 	json.Unmarshal(resp.Body(), &conversations)
@@ -59,7 +59,7 @@ func (api *API) GetConversations() *common.Conversations {
 
 //goland:noinspection GoUnhandledErrorResult
 func (api *API) GetConversation(conversationID string) {
-	resp, _ := chatGPTClient.R().Get("/chatgpt/conversation/" + conversationID)
+	resp, _ := chatGPTClient.R().Get("/chatgpt/backend-api/conversation/" + conversationID)
 
 	var conversation common.Conversation
 	json.Unmarshal(resp.Body(), &conversation)
@@ -118,9 +118,9 @@ func (api *API) CreateConversation(content string) {
 			"model": "%s",
 			"conversation_id": "%s",
 			"timezone_offset_min": -480,
-			"variant_purpose": "none"
+			"auto_continue": true
 		}`, uuid.NewString(), common.RoleUser, common.RoleUser, content, parentMessageID, common.ChatGPTModel, common.ConversationID)).
-		Post("/chatgpt/conversation")
+		Post("/chatgpt/backend-api/conversation")
 
 	// get it again from response
 	common.ParentMessageID = ""
@@ -175,7 +175,7 @@ func (api *API) GenerateTitle(conversationID string) {
 		SetBody(map[string]string{
 			"message_id": common.ParentMessageID,
 		}).
-		Post("/chatgpt/conversation/gen_title/" + conversationID)
+		Post("/chatgpt/backend-api/conversation/gen_title/" + conversationID)
 	if err != nil {
 		return
 	}
@@ -188,7 +188,7 @@ func (api *API) RenameTitle(conversationID string, title string) {
 		SetBody(map[string]string{
 			"title": title,
 		}).
-		Patch("/chatgpt/conversation/" + conversationID)
+		Patch("/chatgpt/backend-api/conversation/" + conversationID)
 	if err != nil {
 		return
 	}
@@ -201,7 +201,7 @@ func (api *API) DeleteConversation(conversationID string) {
 		SetBody(map[string]bool{
 			"is_visible": false,
 		}).
-		Patch("/chatgpt/conversation/" + conversationID)
+		Patch("/chatgpt/backend-api/conversation/" + conversationID)
 	if err != nil {
 		return
 	}
@@ -214,7 +214,7 @@ func (api *API) ClearConversations() {
 		SetBody(map[string]bool{
 			"is_visible": false,
 		}).
-		Patch("/chatgpt/conversations")
+		Patch("/chatgpt/backend-api/conversations")
 	if err != nil {
 		return
 	}
