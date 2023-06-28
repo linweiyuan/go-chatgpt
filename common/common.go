@@ -8,7 +8,7 @@ const (
 	ChatGPTMode                        = "ChatGPT"
 	LoadingText                        = "Loading..."
 	NewChatText                        = "+ New chat"
-	ChatGPTModel                       = "text-davinci-002-render-sha"
+	ChatGPTModel                       = "gpt-4"
 	ApiModel                           = "gpt-3.5-turbo"
 	PlatformPrefix                     = "/platform"
 	ApiVersion                         = "/v1"
