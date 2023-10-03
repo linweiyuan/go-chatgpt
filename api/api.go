@@ -112,7 +112,8 @@ func (api *API) CreateConversation(content string) {
 				"content": {
 					"content_type": "text",
 					"parts": ["%s"]
-				}
+				},
+				"metadata": {}
 			}],
 			"parent_message_id": "%s",
 			"model": "%s",
